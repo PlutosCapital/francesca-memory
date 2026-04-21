@@ -1,0 +1,66 @@
+# Icarus Memory — Francesca Stack v2.0
+# Curated indexing: L1, L2-daily, L2-scribe, L3 only. NO raw sessions.
+version: 2.0
+vault_root: /home/boss/vault
+
+sources:
+  - name: L1-working
+    path: L1-working
+    pattern: "*.md"
+    priority: 10
+    refresh_interval: 5m
+    index_mode: full_text  # Not vector — too noisy for scratchpad
+
+  - name: L2-daily
+    path: L2-episodic/daily
+    pattern: "*.md"
+    priority: 8
+    refresh_interval: 30m
+    index_mode: vector     # FAISS: semantic search across days
+
+  - name: L2-scribe
+    path: L2-episodic/scribe
+    pattern: "*.md"
+    priority: 7
+    refresh_interval: 60m
+    index_mode: vector
+
+  - name: L3-identity
+    path: L3-semantic/identity
+    pattern: "*.json"
+    priority: 9
+    refresh_interval: 5m
+    index_mode: structured  # Key-value, always injected into context
+
+  - name: L3-knowledge
+    path: L3-semantic/knowledge
+    pattern: "*.json"
+    priority: 6
+    refresh_interval: 60m
+    index_mode: structured
+
+index:
+  engine: faiss
+  dimension: 768
+  chunk_size: 512
+  overlap: 128
+  top_k: 5
+  store_path: /home/boss/vault/icarus/index
+  rebuild_threshold: 100  # Rebuild index after 100 new docs
+
+injection:
+  system_prompt_prefix: |
+    You are Francesca. You serve Flo.
+    Always consult L3-identity/profile.json before responding.
+    CVD-safe colors only: deep blue, gold, dark red, black.
+    Never execute trades. Never give legal/tax/medical advice.
+  layer1: L3-semantic/identity/profile.json
+  layer2: L3-semantic/identity/decisions.md
+  layer3_top_k: 3  # Inject top 3 relevant daily summaries
+
+rules:
+  - DO NOT index raw agent sessions in .hermes/logs
+  - DO NOT index /tmp
+  - DO NOT index system notes or tool outputs
+  - ONLY index curated L1, L2-daily, L2-scribe, L3
+  - Auto-archive files older than 90 days
